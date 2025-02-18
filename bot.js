@@ -5,7 +5,7 @@ const express = require("express");
 const bot = new Telegraf(process.env.BOT_TOKEN);
 const app = express();
 
-const const welcomeMessages = [
+const welcomeMessages = [
   "Selamat datang, {name}! 🎉 Jangan lupa baca aturan grup ya!",
   "Hai {name}, selamat bergabung! Semoga betah di sini. 😃",
   "Hajimemashite {name}-san! よろしくね! 🌸",
