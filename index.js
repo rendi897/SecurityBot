@@ -137,6 +137,29 @@ bot.on("photo", async (ctx) => {
   }
 });
 
+// Fungsi mengirim pesan random
+const randomMessages = [
+  "Tetap semangat, kawan! 💪",
+  "Never give up! You're doing great! 🌟",
+  "Yare yare, jangan lupa istirahat ya~ 😏",
+  "Ayo produktif hari ini! 🚀",
+  "Apakah kamu sudah minum air hari ini? 💧",
+  "Shinjiru koto ga taisetsu da yo! (Percayalah, itu penting!) 🏆"
+];
+
+const sendRandomMessage = async () => {
+  const chatId = process.env.GROUP_ID;
+  if (!chatId) return;
+
+  const message = randomMessages[Math.floor(Math.random() * randomMessages.length)];
+  await bot.telegram.sendMessage(chatId, message);
+
+  const nextInterval = Math.floor(Math.random() * (10 * 60 * 60 * 1000 - 30 * 60 * 1000) + 30 * 60 * 1000);
+  setTimeout(sendRandomMessage, nextInterval);
+};
+
+sendRandomMessage();
+
 // Mulai bot
 bot.launch();
 console.log("Bot berjalan...");
