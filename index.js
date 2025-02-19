@@ -99,10 +99,38 @@ bot.on("left_chat_member", (ctx) => {
   ctx.reply(message);
 });
 
-// Fungsi untuk mute/unmute
+// Fungsi untuk mengecek apakah bot memiliki izin admin
+const isBotAdmin = async (ctx) => {
+  try {
+    const botInfo = await ctx.telegram.getChatMember(ctx.chat.id, ctx.botInfo.id);
+    return botInfo.status === "administrator";
+  } catch (error) {
+    console.error("Gagal mengecek status bot:", error);
+    return false;
+  }
+};
+
+// Fungsi untuk mengecek apakah user adalah admin
+const isUserAdmin = async (ctx, userId) => {
+  try {
+    const member = await ctx.telegram.getChatMember(ctx.chat.id, userId);
+    return ["administrator", "creator"].includes(member.status);
+  } catch (error) {
+    console.error("Gagal mengecek status user:", error);
+    return false;
+  }
+};
+
+// Fungsi untuk membatasi pengguna (mute/unmute)
 const restrictMember = async (ctx, canSend) => {
   const user = ctx.message.reply_to_message?.from;
-  if (!user) return ctx.reply("Balas pesan pengguna yang ingin diubah statusnya.");
+  if (!user) return ctx.reply("Balas pesan pengguna yang ingin di-mute/unmute.");
+  
+  // Cek apakah bot adalah admin
+  if (!(await isBotAdmin(ctx))) return ctx.reply("Saya bukan admin, tidak bisa mengatur pengguna.");
+
+  // Cek apakah user adalah admin
+  if (await isUserAdmin(ctx, user.id)) return ctx.reply("Tidak bisa mengubah status admin.");
 
   try {
     await ctx.telegram.restrictChatMember(ctx.chat.id, user.id, { can_send_messages: canSend });
@@ -124,72 +152,57 @@ const restrictMember = async (ctx, canSend) => {
 bot.command("mute", (ctx) => restrictMember(ctx, false));
 bot.command("unmute", (ctx) => restrictMember(ctx, true));
 
-// Ban dan Unban dengan penyimpanan di database
+// Fungsi untuk ban user
 bot.command("ban", async (ctx) => {
   const user = ctx.message.reply_to_message?.from;
   if (!user) return ctx.reply("Balas pesan pengguna yang ingin diban.");
 
+  if (!(await isBotAdmin(ctx))) return ctx.reply("Saya bukan admin, tidak bisa ban user.");
+  if (await isUserAdmin(ctx, user.id)) return ctx.reply("Tidak bisa ban admin.");
+
   try {
     await ctx.telegram.banChatMember(ctx.chat.id, user.id);
-
     await db.read();
     db.data.bannedUsers.push(user.id);
     await db.write();
-
     ctx.reply(`🚫 ${user.first_name} telah dibanned.`);
   } catch (error) {
     ctx.reply("Gagal memproses ban.");
   }
 });
 
+// Fungsi untuk unban user
 bot.command("unban", async (ctx) => {
   const userId = parseInt(ctx.message.text.split(" ")[1]);
   if (!userId) return ctx.reply("Masukkan ID pengguna yang ingin diunban.");
 
+  if (!(await isBotAdmin(ctx))) return ctx.reply("Saya bukan admin, tidak bisa unban user.");
+
   try {
     await ctx.telegram.unbanChatMember(ctx.chat.id, userId);
-
     await db.read();
     db.data.bannedUsers = db.data.bannedUsers.filter((id) => id !== userId);
     await db.write();
-
     ctx.reply(`✅ Pengguna dengan ID ${userId} telah diunban.`);
   } catch (error) {
     ctx.reply("Gagal memproses unban.");
   }
 });
 
-// Kick user
+// Fungsi untuk kick user
 bot.command("kick", async (ctx) => {
   const user = ctx.message.reply_to_message?.from;
   if (!user) return ctx.reply("Balas pesan pengguna yang ingin dikick.");
 
+  if (!(await isBotAdmin(ctx))) return ctx.reply("Saya bukan admin, tidak bisa kick user.");
+  if (await isUserAdmin(ctx, user.id)) return ctx.reply("Tidak bisa kick admin.");
+
   try {
     await ctx.telegram.banChatMember(ctx.chat.id, user.id);
     await ctx.telegram.unbanChatMember(ctx.chat.id, user.id);
-
     ctx.reply(`👢 ${user.first_name} telah dikick.`);
   } catch (error) {
     ctx.reply("Gagal memproses kick.");
-  }
-});
-
-// Konversi foto menjadi stiker
-bot.on("photo", async (ctx) => {
-  const fileId = ctx.message.photo.pop().file_id;
-  
-  try {
-    const file = await ctx.telegram.getFile(fileId);
-    const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
-    const filePath = `sticker_${Date.now()}.png`;
-
-    const response = await axios({ url: fileUrl, responseType: "arraybuffer" });
-    await fs.writeFile(filePath, response.data);
-
-    await ctx.replyWithSticker({ source: filePath });
-    await fs.unlink(filePath);
-  } catch (error) {
-    ctx.reply("Gagal mengonversi gambar menjadi stiker.");
   }
 });
 
