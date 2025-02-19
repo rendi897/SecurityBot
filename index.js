@@ -1,9 +1,11 @@
-require("dotenv").config();
-const { Telegraf } = require("telegraf");
-const express = require("express");
-const fs = require("fs");
-const axios = require("axios");
-const { Low, JSONFile } = require("lowdb");
+import dotenv from "dotenv";
+import { Telegraf } from "telegraf";
+import express from "express";
+import axios from "axios";
+import fs from "fs";
+import { Low, JSONFile } from "lowdb";
+
+dotenv.config();
 
 const adapter = new JSONFile("db.json");
 const db = new Low(adapter);
